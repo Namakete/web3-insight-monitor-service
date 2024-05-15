@@ -10,6 +10,13 @@
     "sourceMap": true,
     "outDir": "./dist",
     "baseUrl": "./",
+    "paths": {
+      "@/*": ["src/modules/*"],
+      "@configs/*": ["src/configs/*"],
+      "@web3Services/*": ["src/modules/web3/services/*"],
+      "@priceServices/*": ["src/modules/price/services/*"],
+      "@walletControllers/*": ["src/modules/web3/controllers/*"]
+    },
     "incremental": true,
     "skipLibCheck": true,
     "strictNullChecks": false,
