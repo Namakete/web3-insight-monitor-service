@@ -11,11 +11,13 @@
     "outDir": "./dist",
     "baseUrl": "./",
     "paths": {
-      "@/*": ["src/modules/*"],
+      "@/*": ["src/*"],
       "@configs/*": ["src/configs/*"],
-      "@web3Services/*": ["src/modules/web3/services/*"],
-      "@priceServices/*": ["src/modules/price/services/*"],
-      "@walletControllers/*": ["src/modules/web3/controllers/*"]
+      "@services/*": ["src/services/*"],
+      "@models/*": ["src/models/*"],
+      "@controllers/*": ["src/controllers/*"],
+      "@modules/*": ["src/modules/*"],
+      "@shared/*": ["src/shared/*"]
     },
     "incremental": true,
     "skipLibCheck": true,

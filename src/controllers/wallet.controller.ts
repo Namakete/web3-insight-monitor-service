@@ -1,5 +1,5 @@
 import { Controller, Get, Query, BadRequestException } from '@nestjs/common';
-import { AlchemyService } from '@web3Services/alchemy.service';
+import { AlchemyService } from '@services/alchemy.service';
 
 @Controller('wallet')
 export class WalletController {

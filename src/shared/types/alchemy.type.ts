@@ -22,5 +22,5 @@ export interface Transaction {
   asset: string;
   category: string;
   blockNum: string;
-  // и так далее
+  timestamp: string;
 }

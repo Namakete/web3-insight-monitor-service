@@ -6,9 +6,11 @@ import {
   AssetTransfersCategory,
   SortingOrder,
 } from 'alchemy-sdk';
-import { PriceService } from '@/price/services/price.service';
-import { NETWORKS_CONFIG } from '@configs/networks/networks.config';
-import { NetworkBalance, Balance, Transaction } from './types';
+import { PriceService } from '@services/price.service';
+import { NetworksConfigService } from '@configs/networks.config';
+import { NetworkBalance } from '@models/network-balance.model';
+import { Balance } from '@models/balance.model';
+import { Transaction } from '@models/transaction.model';
 
 @Injectable()
 export class AlchemyService {
@@ -16,20 +18,22 @@ export class AlchemyService {
   private readonly alchemyInstances: { [key: string]: Alchemy } = {};
 
   constructor(
-    private configService: ConfigService,
-    private priceService: PriceService,
+    private readonly configService: ConfigService,
+    private readonly priceService: PriceService,
+    private readonly networksConfigService: NetworksConfigService,
   ) {
     this.initAlchemyInstances();
   }
 
-  private initAlchemyInstances() {
-    Object.entries(NETWORKS_CONFIG).forEach(([network, config]) => {
+  private initAlchemyInstances = () => {
+    const networksConfig = this.networksConfigService.getNetworksConfig();
+    Object.entries(networksConfig).forEach(([network, config]) => {
       this.alchemyInstances[network] = new Alchemy({
         apiKey: this.configService.get<string>(config.apiKeyEnv),
         network: Network[config.network],
       });
     });
-  }
+  };
 
   async getBalances(address: string): Promise<NetworkBalance[]> {
     return this.processNetworkRequests<NetworkBalance>((network) =>
@@ -44,29 +48,30 @@ export class AlchemyService {
     return transactionsResults.flat();
   }
 
-  private async processNetworkRequests<T>(
+  private processNetworkRequests = async <T>(
     requestFn: (network: string) => Promise<T>,
-  ): Promise<T[]> {
+  ): Promise<T[]> => {
     const results = await Promise.all(
-      Object.keys(NETWORKS_CONFIG).map((network) => requestFn(network)),
+      Object.keys(this.networksConfigService.getNetworksConfig()).map(
+        (network) => requestFn(network),
+      ),
     );
     return results.filter(Boolean);
-  }
+  };
 
-  private async getNetworkBalances(
+  private getNetworkBalances = async (
     address: string,
     network: string,
-  ): Promise<NetworkBalance | null> {
+  ): Promise<NetworkBalance | null> => {
     try {
       const alchemy = this.alchemyInstances[network];
-      const config = NETWORKS_CONFIG[network];
+      const config = this.networksConfigService.getNetworksConfig()[network];
 
-      const nativeTokenBalance = await this.getTokenBalance(
-        alchemy,
-        address,
-        config.symbol,
-      );
-      const tokenBalances = await this.getTokenBalances(alchemy, address);
+      const [nativeTokenBalance, tokenBalances] = await Promise.all([
+        this.getTokenBalance(alchemy, address, config.symbol),
+        this.getTokenBalances(alchemy, address),
+      ]);
+
       const allBalances = [nativeTokenBalance, ...tokenBalances];
 
       const tokenSymbols = allBalances.map((balance) =>
@@ -84,15 +89,14 @@ export class AlchemyService {
       );
       return null;
     }
-  }
+  };
 
-  private async getNetworkTransactions(
+  private getNetworkTransactions = async (
     address: string,
     network: string,
-  ): Promise<Transaction[]> {
+  ): Promise<Transaction[]> => {
     try {
       const alchemy = this.alchemyInstances[network];
-
       const supportedCategories = this.getSupportedCategories(network);
 
       const transactions = await alchemy.core.getAssetTransfers({
@@ -102,7 +106,19 @@ export class AlchemyService {
         order: SortingOrder.DESCENDING,
       });
 
-      return transactions.transfers as Transaction[];
+      const transactionsWithTimestamp = await Promise.all(
+        transactions.transfers.map(async (transaction) => {
+          const block = await alchemy.core.getBlock(
+            Number(transaction.blockNum),
+          );
+          return {
+            ...transaction,
+            timestamp: this.convertUnixTimestampToDate(block.timestamp),
+          };
+        }),
+      );
+
+      return transactionsWithTimestamp as Transaction[];
     } catch (error) {
       this.logger.error(
         `Error fetching transactions for network ${network}: ${error.message}`,
@@ -110,9 +126,11 @@ export class AlchemyService {
       );
       return [];
     }
-  }
+  };
 
-  private getSupportedCategories(network: string): AssetTransfersCategory[] {
+  private getSupportedCategories = (
+    network: string,
+  ): AssetTransfersCategory[] => {
     const categories = [
       AssetTransfersCategory.EXTERNAL,
       AssetTransfersCategory.ERC20,
@@ -125,21 +143,21 @@ export class AlchemyService {
     }
 
     return categories;
-  }
+  };
 
-  private async getTokenBalance(
+  private getTokenBalance = async (
     alchemy: Alchemy,
     address: string,
     tokenSymbol: string,
-  ): Promise<Balance> {
+  ): Promise<Balance> => {
     const balanceInWei = await alchemy.core.getBalance(address);
     return this.createBalanceData(tokenSymbol, Number(balanceInWei) / 1e18);
-  }
+  };
 
-  private async getTokenBalances(
+  private getTokenBalances = async (
     alchemy: Alchemy,
     address: string,
-  ): Promise<Balance[]> {
+  ): Promise<Balance[]> => {
     const tokenBalances = await alchemy.core.getTokenBalances(address);
     return tokenBalances.tokenBalances.map((tokenBalance) => {
       const balanceInWei = tokenBalance.tokenBalance
@@ -150,24 +168,28 @@ export class AlchemyService {
         balanceInWei / 1e18,
       );
     });
-  }
+  };
 
-  private createBalanceData(token: string, amount: number): Balance {
+  private createBalanceData = (token: string, amount: number): Balance => {
     return {
       Token: token,
       Data: { Amount: amount, Price: 0, USD: 0 },
     };
-  }
+  };
 
-  private updateBalancesWithPrices(
+  private updateBalancesWithPrices = (
     balances: Balance[],
     prices: { [key: string]: number },
-  ) {
+  ) => {
     balances.forEach((balance) => {
       const tokenId = balance.Token.toUpperCase();
       const priceInUSD = prices[tokenId] || 0;
       balance.Data.Price = priceInUSD;
       balance.Data.USD = balance.Data.Amount * priceInUSD;
     });
-  }
+  };
+
+  private convertUnixTimestampToDate = (timestamp: number): string => {
+    return new Date(timestamp * 1000).toISOString();
+  };
 }

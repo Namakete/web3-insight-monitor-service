@@ -1,17 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
+import {
+  COINMARKETCAP_API_URL,
+  COINMARKETCAP_API_KEY,
+  MAX_RETRIES,
+  RETRY_DELAY,
+  CACHE_EXPIRY,
+} from '@shared/constants/price.constant';
+import { PriceCache } from '@shared/types/price.type';
 
 @Injectable()
 export class PriceService {
   private readonly logger = new Logger(PriceService.name);
-  private readonly baseUrl =
-    'https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest';
-  private readonly apiKey = process.env.COINMARKETCAP_API_KEY;
-  private readonly maxRetries = 5;
-  private readonly retryDelay = 2000;
-  private priceCache: { [key: string]: { price: number; timestamp: number } } =
-    {};
-  private cacheExpiry = 300000;
+  private priceCache: PriceCache = {};
 
   async getPrices(symbols: string[]): Promise<{ [key: string]: number }> {
     const now = Date.now();
@@ -24,12 +25,12 @@ export class PriceService {
     return { ...cachedPrices, ...this.getUpdatedPrices(symbols) };
   }
 
-  private getCachedPrices(symbols: string[], now: number) {
+  private getCachedPrices = (symbols: string[], now: number) => {
     const cachedPrices: { [key: string]: number } = {};
     const symbolsToFetch = symbols.filter((symbol) => {
       if (
         this.priceCache[symbol] &&
-        now - this.priceCache[symbol].timestamp < this.cacheExpiry
+        now - this.priceCache[symbol].timestamp < CACHE_EXPIRY
       ) {
         cachedPrices[symbol] = this.priceCache[symbol].price;
         return false;
@@ -37,17 +38,17 @@ export class PriceService {
       return true;
     });
     return { cachedPrices, symbolsToFetch };
-  }
+  };
 
-  private async fetchAndCachePrices(
+  private fetchAndCachePrices = async (
     symbols: string[],
     timestamp: number,
-  ): Promise<void> {
-    for (let attempt = 0; attempt < this.maxRetries; attempt++) {
+  ): Promise<void> => {
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
-        const response = await axios.get(this.baseUrl, {
+        const response = await axios.get(COINMARKETCAP_API_URL, {
           params: { symbol: symbols.join(','), convert: 'USD' },
-          headers: { 'X-CMC_PRO_API_KEY': this.apiKey },
+          headers: { 'X-CMC_PRO_API_KEY': COINMARKETCAP_API_KEY },
         });
 
         this.logger.debug(
@@ -69,9 +70,9 @@ export class PriceService {
       } catch (error) {
         if (error.response?.status === 429) {
           this.logger.warn(
-            `Rate limit exceeded. Retrying in ${this.retryDelay / 1000} seconds...`,
+            `Rate limit exceeded. Retrying in ${RETRY_DELAY / 1000} seconds...`,
           );
-          await this.sleep(this.retryDelay);
+          await this.sleep(RETRY_DELAY);
         } else {
           this.logger.error(`Error fetching prices: ${error.message}`, error);
           throw new Error(`Error fetching prices: ${error.message}`);
@@ -79,16 +80,16 @@ export class PriceService {
       }
     }
     throw new Error('Failed to fetch prices after multiple attempts.');
-  }
+  };
 
-  private getUpdatedPrices(symbols: string[]): { [key: string]: number } {
+  private getUpdatedPrices = (symbols: string[]): { [key: string]: number } => {
     return symbols.reduce((acc, symbol) => {
       acc[symbol] = this.priceCache[symbol]?.price || 0;
       return acc;
     }, {});
-  }
+  };
 
-  private sleep(ms: number): Promise<void> {
+  private sleep = (ms: number): Promise<void> => {
     return new Promise((resolve) => setTimeout(resolve, ms));
-  }
+  };
 }
