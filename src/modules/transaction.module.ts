@@ -1,7 +1,7 @@
-import { Module } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
-import { TransactionService } from '../services/transaction.service';
+import { Module } from '@nestjs/common';
 import { TransactionController } from '../controllers/transaction.controller';
+import { TransactionService } from '../services/transaction.service';
 
 @Module({
   imports: [HttpModule],

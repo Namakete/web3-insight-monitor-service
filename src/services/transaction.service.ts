@@ -1,9 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { HttpService } from '@nestjs/axios';
+
 import { ConfigService } from '@nestjs/config';
-import { lastValueFrom } from 'rxjs';
-import Web3 from 'web3';
+import { HttpService } from '@nestjs/axios';
 import { Transaction } from '@/models/transaction.model';
+import Web3 from 'web3';
+import { lastValueFrom } from 'rxjs';
 
 @Injectable()
 export class TransactionService {

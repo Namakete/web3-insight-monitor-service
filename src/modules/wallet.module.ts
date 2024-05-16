@@ -1,7 +1,7 @@
-import { Module } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
-import { WalletService } from '../services/wallet.service';
+import { Module } from '@nestjs/common';
 import { WalletController } from '../controllers/wallet.controller';
+import { WalletService } from '../services/wallet.service';
 
 @Module({
   imports: [HttpModule],

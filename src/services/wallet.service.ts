@@ -1,9 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { HttpService } from '@nestjs/axios';
+
 import { ConfigService } from '@nestjs/config';
+import { HttpService } from '@nestjs/axios';
 import { Wallet } from '@/models/wallet.model';
-import { lastValueFrom } from 'rxjs';
 import Web3 from 'web3';
+import { lastValueFrom } from 'rxjs';
 
 @Injectable()
 export class WalletService {
@@ -23,7 +24,7 @@ export class WalletService {
   private async fetchData(url: string): Promise<any> {
     try {
       const response = await lastValueFrom(this.httpService.get(url));
-      this.logger.log(`Response from ${url}: ${JSON.stringify(response.data)}`);
+
       return response.data;
     } catch (error) {
       this.logger.error(
