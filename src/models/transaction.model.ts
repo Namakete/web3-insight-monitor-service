@@ -1,10 +1,12 @@
 export interface Transaction {
-  hash: string;
+  transactionHash: string;
+  status: string;
+  block: number;
+  timestamp: Date;
   from: string;
   to: string;
-  value: number;
-  asset: string;
-  category: string;
-  blockNum: string;
-  timestamp: string;
+  value: string;
+  coin: string;
+  transactionFee: string;
+  gasPrice: string;
 }
