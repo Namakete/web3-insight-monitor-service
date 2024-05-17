@@ -1,4 +1,11 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  Query,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import { WalletService } from '@/services/wallet.service';
 import { Wallet } from '@/models/wallet.model';
 
@@ -11,13 +18,21 @@ export class WalletController {
     @Param('address') address: string,
     @Query('network') network: string,
   ): Promise<Wallet> {
-    return this.walletService.getWalletDetails(address, network);
+    try {
+      return await this.walletService.getWalletDetails(address, network);
+    } catch (error) {
+      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Get('all/:address')
   async getAllWallets(
     @Param('address') address: string,
   ): Promise<{ network: string; details: Wallet }[]> {
-    return this.walletService.getAllWalletDetails(address);
+    try {
+      return await this.walletService.getAllWalletDetails(address);
+    } catch (error) {
+      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 }

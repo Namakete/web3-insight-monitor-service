@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { MappedTransaction, Transaction } from '@/models/transaction.model';
 
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
-import { Transaction } from '@/models/transaction.model';
 import Web3 from 'web3';
 import { lastValueFrom } from 'rxjs';
 
@@ -28,62 +28,61 @@ export class TransactionService {
     return response.data.result;
   }
 
-  private mapTransactionData(tx, coinSymbol: string) {
+  private mapTransactionData(
+    transactionHash: Transaction,
+    coinSymbol: string,
+  ): MappedTransaction {
+    const {
+      hash,
+      isError,
+      blockNumber,
+      timeStamp,
+      from,
+      to,
+      value,
+      gasUsed,
+      gasPrice,
+    } = transactionHash;
+
+    const status = isError === '0' ? 'Success' : 'Failed';
+    const block = parseInt(blockNumber, 10);
+    const timestamp = new Date(timeStamp * 1000);
+    const transactionValue = this.web3.utils.fromWei(value, 'ether');
+    const transactionFee = this.web3.utils.fromWei(
+      (BigInt(gasUsed) * BigInt(gasPrice)).toString(),
+      'ether',
+    );
+    const gasPriceInGwei = this.web3.utils.fromWei(gasPrice, 'gwei');
+
     return {
-      transactionHash: tx.hash,
-      status: tx.isError === '0' ? 'Success' : 'Failed',
-      block: parseInt(tx.blockNumber, 10),
-      timestamp: new Date(tx.timeStamp * 1000),
-      from: tx.from,
-      to: tx.to,
-      value: `${this.web3.utils.fromWei(tx.value, 'ether')}`,
-      coin: `${coinSymbol}`,
-      transactionFee: `${this.web3.utils.fromWei((tx.gasUsed * tx.gasPrice).toString(), 'ether')}`,
-      gasPrice: this.web3.utils.fromWei(tx.gasPrice, 'gwei'),
+      transactionHash: hash,
+      status,
+      block,
+      timestamp,
+      from,
+      to,
+      value: transactionValue,
+      coin: coinSymbol,
+      transactionFee,
+      gasPrice: gasPriceInGwei,
     };
   }
 
-  async getTransactionDetails(
-    transactionHash: string,
-    network: string,
-  ): Promise<Transaction> {
+  private getNetworkConfig(network: string) {
     const apiKey = this.configService.get<string>(`networks.${network}.apiKey`);
     const apiUrl = this.configService.get<string>(`networks.${network}.apiUrl`);
     const coinSymbol = this.configService.get<string>(
       `networks.${network}.coinSymbol`,
     );
 
-    this.logger.log(`Using API Key: ${apiKey}`);
-    this.logger.log(`Using API URL: ${apiUrl}`);
-
-    const url = `${apiUrl}?module=proxy&action=eth_getTransactionByHash&txhash=${transactionHash}&apikey=${apiKey}`;
-    const transactionData = await this.fetchTransactionData(url);
-
-    this.logger.log(`Transaction Response: ${JSON.stringify(transactionData)}`);
-
-    return {
-      transactionHash: transactionData.hash,
-      status: transactionData.status,
-      block: parseInt(transactionData.blockNumber, 16),
-      timestamp: new Date(),
-      from: transactionData.from,
-      to: transactionData.to,
-      value: `${this.web3.utils.fromWei(transactionData.value, 'ether')}`,
-      coin: `${coinSymbol}`,
-      transactionFee: '',
-      gasPrice: this.web3.utils.fromWei(transactionData.gasPrice, 'gwei'),
-    };
+    return { apiKey, apiUrl, coinSymbol };
   }
 
   async getTransactionsByAddress(
     address: string,
     network: string,
   ): Promise<Transaction[]> {
-    const apiKey = this.configService.get<string>(`networks.${network}.apiKey`);
-    const apiUrl = this.configService.get<string>(`networks.${network}.apiUrl`);
-    const coinSymbol = this.configService.get<string>(
-      `networks.${network}.coinSymbol`,
-    );
+    const { apiKey, apiUrl, coinSymbol } = this.getNetworkConfig(network);
 
     this.logger.log(`Using API Key: ${apiKey}`);
     this.logger.log(`Using API URL: ${apiUrl}`);
@@ -95,8 +94,8 @@ export class TransactionService {
       `Transactions Response: ${JSON.stringify(transactionsData)}`,
     );
 
-    return transactionsData.map((tx) =>
-      this.mapTransactionData(tx, coinSymbol),
+    return transactionsData.map((transactionHash) =>
+      this.mapTransactionData(transactionHash, coinSymbol),
     );
   }
 
