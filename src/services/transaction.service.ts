@@ -18,14 +18,14 @@ export class TransactionService {
     this.web3 = new Web3();
   }
 
-  private async fetchTransactionData(url: string) {
-    const response = await lastValueFrom(this.httpService.get(url));
-    return response.data.result;
-  }
-
   private async fetchTransactionsData(url: string) {
-    const response = await lastValueFrom(this.httpService.get(url));
-    return response.data.result;
+    try {
+      const response = await lastValueFrom(this.httpService.get(url));
+      return response.data.result;
+    } catch (error) {
+      this.logger.error(`Failed to fetch transactions: ${error.message}`);
+      throw error;
+    }
   }
 
   private mapTransactionData(
@@ -94,7 +94,7 @@ export class TransactionService {
       `Transactions Response: ${JSON.stringify(transactionsData)}`,
     );
 
-    return transactionsData.map((transactionHash) =>
+    return transactionsData.map((transactionHash: Transaction) =>
       this.mapTransactionData(transactionHash, coinSymbol),
     );
   }

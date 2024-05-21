@@ -87,10 +87,11 @@ export class WalletService {
   }
 
   async getWalletDetails(address: string, network: string): Promise<Wallet> {
-    const networkConfig =
-      this.configService.get<
-        Record<string, { apiKey: string; apiUrl: string; coinSymbol: string }>
-      >('networks')[network];
+    const networkConfig = this.configService.get<{
+      apiKey: string;
+      apiUrl: string;
+      coinSymbol: string;
+    }>(`networks.${network}`);
 
     if (!networkConfig || !networkConfig.apiKey || !networkConfig.apiUrl) {
       this.logger.error(
